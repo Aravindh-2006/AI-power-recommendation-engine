@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineMatch | Modern Movie Recommendation System</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Playfair+Display:wght@700&display=swap"
+        rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="container">
+        <header class="glass-header">
+            <a href="/" class="logo" style="text-decoration: none; color: inherit;">
+                <i class="fas fa-film"></i>
+                <h1>CineMatch</h1>
+            </a>
+            <p class="tagline">Your AI-Powered Movie Concierge</p>
+        </header>
+
+        <main>
+            <section class="search-section glass-card">
+                <div class="search-container">
+                    <label for="movie-search">What's your favorite movie?</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="movie-search" placeholder="Type to search all movies..."
+                            autocomplete="off">
+                        <div id="movie-dropdown" class="movie-dropdown glass-dropdown">
+                            <div class="dropdown-section">Explore by Genre</div>
+                            <div class="genre-grid">
+                                {% for genre in genres %}
+                                <div class="dropdown-item genre-item" data-value="{{ genre }}" data-type="genre">
+                                    {{ genre }}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="dropdown-section" id="dropdown-results-title">Search Results</div>
+                            <div id="movie-list-container">
+                                <!-- Results will be dynamically injected here by JS -->
+                                <div class="dropdown-item hint-item">Start typing to find any movie...</div>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="movie-select" name="movie">
+                    <button id="recommend-btn" class="glow-button" onclick="getRecommendations()">
+                        <span>Find Matches</span>
+                        <i class="fas fa-bolt"></i>
+                    </button>
+                </div>
+            </section>
+
+            <section class="loading-section" id="loading" style="display: none;">
+                <div class="loader-container">
+                    <div class="loader"></div>
+                    <div class="loader-text">Analyzing your taste...</div>
+                </div>
+            </section>
+
+            <section id="dashboard-init" class="recommendations-container">
+                <div class="section-header">
+                    <h2>Trending Today</h2>
+                    <div class="header-line"></div>
+                </div>
+                <div class="movies-grid">
+                    {% for movie in trending_movies %}
+                    <div class="movie-card" onclick="selectMovie('{{ movie.title }}')">
+                        <img class="movie-poster" src="{{ movie.poster_url }}" alt="{{ movie.title }}"
+                            onerror="this.src='https://images.unsplash.com/photo-1594909122845-11baa439b7bf?q=80&w=300&h=450&auto=format&fit=crop'">
+                        <div class="movie-overlay">
+                            <h3 class="movie-title">{{ movie.title }}</h3>
+                            <div class="movie-meta">
+                                <span class="view-btn"><i class="fas fa-play"></i> Watch Trailer</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="recommendations-container" id="recommendations" style="display: none;">
+                <div class="featured-section">
+                    <div class="section-header">
+                        <h2>Now Selected</h2>
+                        <div class="header-line"></div>
+                    </div>
+                    <div id="featured-movie-container" class="featured-movie-grid">
+                        <!-- Searched movie will be here -->
+                    </div>
+                </div>
+
+                <div class="section-header">
+                    <h2>Similar Movies You'll Love</h2>
+                    <div class="header-line"></div>
+                </div>
+                <div class="movies-grid" id="movies-grid">
+                    <!-- Movies will be dynamically inserted here -->
+                </div>
+            </section>
+        </main>
+
+        <footer class="glass-footer">
+            <p>&copy; 2024 CineMatch AI. Crafted with <i class="fas fa-heart"></i> for cinema lovers.</p>
+        </footer>
+    </div>
+
+    <script id="movies-data" type="application/json">
+        {{ movies | tojson | safe }}
+    </script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+
+</html>
