@@ -1,27 +1,35 @@
+import sys
+import os
+
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from flask import Flask, render_template, request, jsonify
 import pandas as pd
 import requests
 import pickle
-import os
-import sys
-
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 app = Flask(__name__, static_folder='../static', template_folder='../templates')
 
 # Load the processed data and similarity matrix
 def load_data():
     try:
-        pickle_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'movie_data.pkl')
-        if os.path.exists(pickle_path):
-            with open(pickle_path, 'rb') as file:
-                movies, cosine_sim = pickle.load(file)
-            print(f"Movie data loaded successfully from {pickle_path}!")
-            return movies, cosine_sim
-        else:
-            print(f"Warning: {pickle_path} not found. Loading sample data...")
-            return load_sample_data()
+        # Try multiple paths for pickle file
+        paths_to_try = [
+            'movie_data.pkl',
+            '../movie_data.pkl',
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), 'movie_data.pkl')
+        ]
+        
+        for pickle_path in paths_to_try:
+            if os.path.exists(pickle_path):
+                with open(pickle_path, 'rb') as file:
+                    movies, cosine_sim = pickle.load(file)
+                print(f"Movie data loaded successfully from {pickle_path}!")
+                return movies, cosine_sim
+        
+        print("Warning: movie_data.pkl not found. Loading sample data...")
+        return load_sample_data()
     except Exception as e:
         print(f"Error loading data: {e}")
         return load_sample_data()
@@ -29,23 +37,30 @@ def load_data():
 def load_sample_data():
     """Load sample movie data when pickle file is unavailable"""
     try:
-        filtered_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'filtered_credits.json')
-        if os.path.exists(filtered_path):
-            import json
-            with open(filtered_path, 'r') as f:
-                data = json.load(f)
-                movies = pd.DataFrame(data)
-                cosine_sim = [[1.0] * len(movies) for _ in range(len(movies))]
-                print("Loaded sample data from filtered_credits.json")
-                return movies, cosine_sim
+        # Try to load from filtered_credits.json
+        json_paths = [
+            'filtered_credits.json',
+            '../filtered_credits.json',
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), 'filtered_credits.json')
+        ]
+        
+        for json_path in json_paths:
+            if os.path.exists(json_path):
+                import json
+                with open(json_path, 'r') as f:
+                    data = json.load(f)
+                    movies = pd.DataFrame(data)
+                    cosine_sim = [[1.0] * len(movies) for _ in range(len(movies))]
+                    print(f"Loaded sample data from {json_path}")
+                    return movies, cosine_sim
     except Exception as e:
         print(f"Could not load sample data: {e}")
     
     # Fallback: Create minimal data
     sample_movies = {
-        'title': ['The Shawshank Redemption', 'The Godfather', 'The Dark Knight', 'Pulp Fiction', 'Forrest Gump'],
-        'movie_id': [278, 238, 155, 680, 13],
-        'tags': ['Drama', 'Crime Drama', 'Action Crime', 'Crime Drama', 'Drama Romance']
+        'title': ['The Shawshank Redemption', 'The Godfather', 'The Dark Knight', 'Pulp Fiction', 'Forrest Gump', 'Inception', 'The Matrix', 'Interstellar'],
+        'movie_id': [278, 238, 155, 680, 13, 27205, 603, 24428],
+        'tags': ['Drama', 'Crime Drama', 'Action Crime', 'Crime Drama', 'Drama Romance', 'Sci-Fi Thriller', 'Sci-Fi Action', 'Sci-Fi Drama']
     }
     movies = pd.DataFrame(sample_movies)
     cosine_sim = [[1.0] * len(movies) for _ in range(len(movies))]
@@ -65,7 +80,9 @@ def get_recommendations(title, cosine_sim=cosine_sim):
         sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
         sim_scores = sim_scores[1:11]  # Get top 10 similar movies
         movie_indices = [i[0] for i in sim_scores]
-        return movies[['title', 'movie_id', 'tags']].iloc[movie_indices]
+        
+        cols = ['title', 'movie_id', 'tags'] if 'tags' in movies.columns else ['title', 'movie_id']
+        return movies[cols].iloc[movie_indices]
     except Exception:
         return pd.DataFrame()
 
@@ -167,7 +184,11 @@ def movies_by_genre():
     
     results = []
     # Filter movies by tag
-    filtered = movies[movies['tags'].str.contains(genre, case=False, na=False)].head(12)
+    if 'tags' in movies.columns:
+        filtered = movies[movies['tags'].str.contains(genre, case=False, na=False)].head(12)
+    else:
+        filtered = pd.DataFrame()
+    
     for _, row in filtered.iterrows():
         results.append({
             'title': row['title'],
@@ -175,3 +196,11 @@ def movies_by_genre():
         })
     
     return jsonify({'movies': results})
+
+@app.errorhandler(404)
+def not_found(e):
+    # If it's an API endpoint, return JSON
+    if request.path.startswith('/api/') or request.path.startswith('/recommend') or request.path.startswith('/movies-by-genre'):
+        return jsonify({'error': 'Not found'}), 404
+    # Otherwise serve index.html for SPA routing
+    return render_template('index.html', genres=[], movies=[], trending_movies=[])
