@@ -128,7 +128,12 @@ def index():
     """Serve the main page"""
     try:
         if movies.empty:
-            return render_template('index.html', genres=[], movies=[], trending_movies=[])
+            return jsonify({
+                'status': 'ok',
+                'genres': [],
+                'movies': [],
+                'trending_movies': []
+            })
         
         genres_set = set()
         popular_genres = ['Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 'Animation', 'Thriller', 'Adventure']
@@ -151,10 +156,17 @@ def index():
                 'poster_url': fetch_poster(row['movie_id'], row['title'])
             })
         
-        return render_template('index.html', genres=genre_list, movies=movie_list, trending_movies=trending_movies)
+        return jsonify({
+            'status': 'ok',
+            'genres': genre_list,
+            'movies': movie_list,
+            'trending_movies': trending_movies
+        })
     except Exception as e:
         print(f"Index error: {e}")
-        return render_template('index.html', genres=[], movies=[], trending_movies=[])
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'status': 'error'}), 500
 
 @app.route('/recommend')
 def recommend():
@@ -215,15 +227,15 @@ def movies_by_genre():
 @app.errorhandler(404)
 def not_found(e):
     """Handle 404 errors"""
-    try:
-        return render_template('index.html', genres=[], movies=[], trending_movies=[])
-    except:
-        return jsonify({'error': 'Not found'}), 404
+    return jsonify({'error': 'Not found', 'status': 'not_found'}), 404
 
 @app.errorhandler(500)
 def server_error(e):
     """Handle 500 errors"""
-    return jsonify({'error': 'Internal server error'}), 500
+    print(f"Server error: {e}")
+    import traceback
+    traceback.print_exc()
+    return jsonify({'error': 'Internal server error', 'status': 'error'}), 500
 
 if __name__ == '__main__':
     app.run(debug=False)
