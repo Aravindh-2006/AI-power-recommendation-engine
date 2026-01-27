@@ -3,13 +3,17 @@ import pandas as pd
 import requests
 import pickle
 import os
+import sys
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+app = Flask(__name__, static_folder='../static', template_folder='../templates')
 
 # Load the processed data and similarity matrix
 def load_data():
     try:
-        pickle_path = 'movie_data.pkl'
+        pickle_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'movie_data.pkl')
         if os.path.exists(pickle_path):
             with open(pickle_path, 'rb') as file:
                 movies, cosine_sim = pickle.load(file)
@@ -25,13 +29,12 @@ def load_data():
 def load_sample_data():
     """Load sample movie data when pickle file is unavailable"""
     try:
-        # Try to load from filtered_credits.json if it exists
-        if os.path.exists('filtered_credits.json'):
+        filtered_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'filtered_credits.json')
+        if os.path.exists(filtered_path):
             import json
-            with open('filtered_credits.json', 'r') as f:
+            with open(filtered_path, 'r') as f:
                 data = json.load(f)
                 movies = pd.DataFrame(data)
-                # Create dummy similarity matrix
                 cosine_sim = [[1.0] * len(movies) for _ in range(len(movies))]
                 print("Loaded sample data from filtered_credits.json")
                 return movies, cosine_sim
@@ -112,7 +115,7 @@ def index():
     genre_list = sorted(list(genres_set))
     movie_list = sorted(movies['title'].tolist())
     
-    # Selection of "Trending" movies (just static indices for now)
+    # Selection of "Trending" movies
     trending_indices = [0, 1, 2, 3, 4] if len(movies) >= 5 else list(range(len(movies)))
     trending_movies = []
     for i in trending_indices:
@@ -172,6 +175,3 @@ def movies_by_genre():
         })
     
     return jsonify({'movies': results})
-
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
