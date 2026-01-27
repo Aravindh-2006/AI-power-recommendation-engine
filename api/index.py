@@ -3,10 +3,11 @@ import os
 
 # Set up paths
 current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+api_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
 
 try:
-    from flask import Flask, render_template, request, jsonify
+    from flask import Flask, send_file, request, jsonify
     import pandas as pd
     import requests
     import pickle
@@ -14,19 +15,9 @@ except ImportError as e:
     print(f"Import error: {e}")
     sys.exit(1)
 
-# Create Flask app with absolute paths
-try:
-    static_path = os.path.join(current_dir, 'static')
-    template_path = os.path.join(current_dir, 'templates')
-    
-    app = Flask(__name__, 
-                static_folder=static_path,
-                static_url_path='/static',
-                template_folder=template_path)
-    app.config['JSON_SORT_KEYS'] = False
-except Exception as e:
-    print(f"Flask initialization error: {e}")
-    raise
+# Create Flask app - don't use templates, serve static files only
+app = Flask(__name__, static_folder=os.path.join(api_dir, 'public'))
+app.config['JSON_SORT_KEYS'] = False
 
 def load_data():
     """Load movie data from pickle or sample data as fallback"""
@@ -125,7 +116,7 @@ def fetch_poster(movie_id, movie_title=None):
 
 @app.route('/')
 def index():
-    """Serve the main page"""
+    """Serve the main HTML file"""
     try:
         if movies.empty:
             return jsonify({
@@ -224,9 +215,52 @@ def movies_by_genre():
         print(f"Genre error: {e}")
         return jsonify({'error': 'Server error'}), 500
 
+@app.route('/<path:path>')
+def serve_static(path):
+    """Serve static files"""
+    public_dir = os.path.join(api_dir, 'public')
+    file_path = os.path.join(public_dir, path)
+    
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        try:
+            with open(file_path, 'r') as f:
+                content = f.read()
+            
+            if file_path.endswith('.html'):
+                return content, 200, {'Content-Type': 'text/html'}
+            elif file_path.endswith('.css'):
+                return content, 200, {'Content-Type': 'text/css'}
+            elif file_path.endswith('.js'):
+                return content, 200, {'Content-Type': 'application/javascript'}
+            else:
+                return content, 200
+        except:
+            pass
+    
+    # Fall back to index.html for SPA routing
+    index_path = os.path.join(public_dir, 'index.html')
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, 'r') as f:
+                return f.read(), 200, {'Content-Type': 'text/html'}
+        except:
+            pass
+    
+    return jsonify({'error': 'Not found'}), 404
+
 @app.errorhandler(404)
 def not_found(e):
-    """Handle 404 errors"""
+    """Handle 404 errors - serve index.html for SPA routing"""
+    public_dir = os.path.join(api_dir, 'public')
+    index_path = os.path.join(public_dir, 'index.html')
+    
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, 'r') as f:
+                return f.read(), 200, {'Content-Type': 'text/html'}
+        except:
+            return jsonify({'error': 'Not found', 'status': 'not_found'}), 404
+    
     return jsonify({'error': 'Not found', 'status': 'not_found'}), 404
 
 @app.errorhandler(500)
